@@ -48,9 +48,9 @@ swift package .
 
 ## Usage
 
-Import the module and call the helpers. All functions take an optional
-`calendar:` parameter (defaults to the current calendar) so you can control the
-timezone.
+Import the module and call the helpers. The date-based functions take an
+optional `calendar:` parameter so you can control the *timezone*. The calendar
+itself is always Gregorian (see **Behavior Notes**).
 
 ```swift
 import SessionTime
