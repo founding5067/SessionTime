@@ -47,7 +47,7 @@ public enum SessionTime {
         let diff = now.timeIntervalSince(date)
 
         if diff < 0 {
-            let formatter = dateLabelFormatter(calendar: calendar)
+            let formatter = makeDateLabelFormatter(calendar: calendar)
             return formatter.string(from: date)
         }
 
@@ -68,7 +68,7 @@ public enum SessionTime {
 
     /// Short clock time (e.g. "3:30 PM").
     public static func time(_ date: Date, calendar: Calendar = .current) -> String {
-        let formatter = clockFormatter(calendar: calendar)
+        let formatter = makeClockFormatter(calendar: calendar)
         return formatter.string(from: date)
     }
 
@@ -79,20 +79,21 @@ public enum SessionTime {
         } else if calendar.isDateInTomorrow(date) {
             return "Tomorrow"
         } else {
-            let formatter = dateLabelFormatter(calendar: calendar)
+            let formatter = makeDateLabelFormatter(calendar: calendar)
             return formatter.string(from: date)
         }
     }
 
     // Builds a copy of the shared formatter with the requested calendar, so each
-    // call is independent and thread-safe.
-    private static func dateLabelFormatter(calendar: Calendar) -> DateFormatter {
+    //
+    // `internal` (not `private`) so tests can assert the calendar/style directly.
+    internal static func makeDateLabelFormatter(calendar: Calendar) -> DateFormatter {
         let formatter = SessionTime.dateLabelFormatter.copy() as! DateFormatter
         formatter.calendar = calendar
         return formatter
     }
 
-    private static func clockFormatter(calendar: Calendar) -> DateFormatter {
+    internal static func makeClockFormatter(calendar: Calendar) -> DateFormatter {
         let formatter = SessionTime.timeFormatter.copy() as! DateFormatter
         formatter.calendar = calendar
         return formatter
