@@ -9,24 +9,24 @@ import Foundation
 // Shared date/time formatting helpers used by both the session list rows and
 // the session detail view. Keeping them in one place means both screens format
 // time identically — and so the "In 0h" bug can't resurface in a second copy.
-enum SessionTime {
+public enum SessionTime {
     // Reusable, thread-safe formatters. DateFormatter is not thread-safe, so a
     // static let reuses one instance instead of allocating a fresh one per call.
-    static let timeFormatter: DateFormatter = {
+    public static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter
     }()
 
-    static let dateLabelFormatter: DateFormatter = {
+    public static let dateLabelFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         return formatter
     }()
 
     /// "In 30 mins" / "In 2h" — time until a session, for later today.
-    static func timeRemaining(_ interval: TimeInterval) -> String {
+    public static func timeRemaining(_ interval: TimeInterval) -> String {
         if interval < 3600 {
             let minutes = Int(interval) / 60
             return "In \(minutes) mins"
@@ -36,7 +36,7 @@ enum SessionTime {
     }
 
     /// "Just now" / "5 mins ago" / "3h ago" — a session that has already happened.
-    static func timeAgo(_ date: Date) -> String {
+    public static func timeAgo(_ date: Date) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
 
@@ -60,12 +60,12 @@ enum SessionTime {
     }
 
     /// Short clock time (e.g. "3:30 PM").
-    static func time(_ date: Date) -> String {
+    public static func time(_ date: Date) -> String {
         return SessionTime.timeFormatter.string(from: date)
     }
 
     /// Empty for today/tomorrow, else the plain date (e.g. "Jun 20").
-    static func dateLabel(_ date: Date) -> String {
+    public static func dateLabel(_ date: Date) -> String {
         if Calendar.current.isDateInToday(date) {
             return ""
         } else if Calendar.current.isDateInTomorrow(date) {
