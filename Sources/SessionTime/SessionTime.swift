@@ -38,16 +38,17 @@ public enum SessionTime {
     /// Pass `expand: true` for full words and a space: "In 30 minutes" / "In 2 hours".
     /// Pass `space: true` to add a space before the unit in the compact form:
     /// "In 30 mins" / "In 2 h".
-    public static func timeRemaining(_ interval: TimeInterval, expand: Bool = false, space: Bool = false) -> String {
-        if interval < 3600 {
-            let minutes = Int(interval) / 60
-            let word = pluralUnit(minutes, expand, false)
-            return "In \(minutes)\(spacedUnit(word, expand: expand, space: space))"
-        } else {
-            let hours = Int(interval / 3600)
-            let word = pluralUnit(hours, expand, true)
-            return "In \(hours)\(spacedUnit(word, expand: expand, space: space))"
-        }
+    /// Pass `spellNumber: true` to spell out the number while keeping the unit
+    /// compact: "In twenty-five mins". Spelling the number always adds a space,
+    /// so `spellNumber` can be combined with `expand` for a fully spelled phrase:
+    /// "In twenty-five minutes".
+    public static func timeRemaining(_ interval: TimeInterval, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
+        let isHour = interval >= 3600
+        let count = isHour ? Int(interval / 3600) : Int(interval) / 60
+        let number = spellNumber ? spelledNumber(count) : String(count)
+        let word = pluralUnit(count, expand, isHour)
+        let separator = expand || space || spellNumber ? " " : ""
+        return "In \(number)\(separator)\(word)"
     }
 
     /// "Just now" / "5mins ago" / "3h ago" — a session that has already happened.
@@ -55,9 +56,14 @@ public enum SessionTime {
     /// Pass `expand: true` for full words and a space: "5 minutes ago" / "3 hours ago".
     /// Pass `space: true` to add a space before the unit in the compact form:
     /// "5 mins ago" / "3 h ago".
-    public static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false) -> String {
+    /// Pass `spellNumber: true` to spell out the number while keeping the unit
+    /// compact: "five minutes ago" / "three h ago". Spelling the number always
+    /// adds a space, so `spellNumber` can combine with `expand` for a fully
+    /// spelled phrase: "five minutes ago" / "three hours ago".
+    public static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
+        let separator = expand || space || spellNumber ? " " : ""
 
         if diff < 0 {
             let formatter = makeDateLabelFormatter(calendar: calendar)
@@ -68,12 +74,14 @@ public enum SessionTime {
             return "Just now"
         } else if diff < 3600 {
             let minutes = Int(diff) / 60
+            let number = spellNumber ? spelledNumber(minutes) : String(minutes)
             let word = pluralUnit(minutes, expand, false)
-            return "\(minutes)\(spacedUnit(word, expand: expand, space: space)) ago"
+            return "\(number)\(separator)\(word) ago"
         } else {
             let hours = Int(diff) / 3600
+            let number = spellNumber ? spelledNumber(hours) : String(hours)
             let word = pluralUnit(hours, expand, true)
-            return "\(hours)\(spacedUnit(word, expand: expand, space: space)) ago"
+            return "\(number)\(separator)\(word) ago"
         }
     }
 
@@ -121,6 +129,21 @@ public enum SessionTime {
     internal static func spacedUnit(_ unit: String, expand: Bool, space: Bool) -> String {
         let separator = expand || space ? " " : ""
         return "\(separator)\(unit)"
+    }
+
+    // A shared NumberFormatter template that spells integers into words
+    // ("25" -> "twenty-five"). Locale is pinned to `en_POSIX` so the words are
+    // always the same English words, matching the determinism goal of the other
+    // formatters. Used as a read-only template, like `timeFormatter`.
+    static let spelled = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .spellOut
+        formatter.locale = Locale(identifier: "en_POSIX")
+        return formatter
+    }()
+
+    internal static func spelledNumber(_ count: Int) -> String {
+        spelled.string(for: count) ?? String(count)
     }
 
     // Picks the unit word for a count. Compact hours are invariant ("h");
