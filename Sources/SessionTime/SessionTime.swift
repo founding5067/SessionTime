@@ -9,9 +9,14 @@ import Foundation
 // Shared date/time formatting helpers used by both the session list rows and
 // the session detail view. Keeping them in one place means both screens format
 // time identically — and so the "In 0h" bug can't resurface in a second copy.
+//
+// The enum body is only used to namespace these helpers; the `public` keyword is
+// what actually exposes them to consumers of the Swift package.
 public enum SessionTime {
-    // Reusable, thread-safe formatters. DateFormatter is not thread-safe, so a
-    // static let reuses one instance instead of allocating a fresh one per call.
+    // Formatter templates. DateFormatter is not thread-safe, so a single static
+    // instance is configured once and then `.copy()`'d per call. Reusing the
+    // template avoids allocating a new formatter every time, while copying keeps
+    // each call thread-safe (no shared mutable state).
     public static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
@@ -36,12 +41,14 @@ public enum SessionTime {
     }
 
     /// "Just now" / "5 mins ago" / "3h ago" — a session that has already happened.
-    public static func timeAgo(_ date: Date) -> String {
+    /// An old session (before `date`) renders as a plain medium-style date.
+    public static func timeAgo(_ date: Date, calendar: Calendar = .current) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
 
         if diff < 0 {
-            return SessionTime.timeFormatter.string(from: date)
+            let formatter = dateLabelFormatter(calendar: calendar)
+            return formatter.string(from: date)
         }
 
         if diff < 60 {
@@ -60,18 +67,34 @@ public enum SessionTime {
     }
 
     /// Short clock time (e.g. "3:30 PM").
-    public static func time(_ date: Date) -> String {
-        return SessionTime.timeFormatter.string(from: date)
+    public static func time(_ date: Date, calendar: Calendar = .current) -> String {
+        let formatter = clockFormatter(calendar: calendar)
+        return formatter.string(from: date)
     }
 
     /// Empty for today/tomorrow, else the plain date (e.g. "Jun 20").
-    public static func dateLabel(_ date: Date) -> String {
-        if Calendar.current.isDateInToday(date) {
+    public static func dateLabel(_ date: Date, calendar: Calendar = .current) -> String {
+        if calendar.isDateInToday(date) {
             return ""
-        } else if Calendar.current.isDateInTomorrow(date) {
+        } else if calendar.isDateInTomorrow(date) {
             return "Tomorrow"
         } else {
-            return SessionTime.dateLabelFormatter.string(from: date)
+            let formatter = dateLabelFormatter(calendar: calendar)
+            return formatter.string(from: date)
         }
+    }
+
+    // Builds a copy of the shared formatter with the requested calendar, so each
+    // call is independent and thread-safe.
+    private static func dateLabelFormatter(calendar: Calendar) -> DateFormatter {
+        let formatter = SessionTime.dateLabelFormatter.copy() as! DateFormatter
+        formatter.calendar = calendar
+        return formatter
+    }
+
+    private static func clockFormatter(calendar: Calendar) -> DateFormatter {
+        let formatter = SessionTime.timeFormatter.copy() as! DateFormatter
+        formatter.calendar = calendar
+        return formatter
     }
 }
