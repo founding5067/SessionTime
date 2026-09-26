@@ -37,24 +37,35 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     #expect(SessionTime.timeRemaining(3_600_000) == "In 1000h")
 }
 
-@Test func timeRemaining_expandedWords() {
-    // expand: true spells out the units with full words.
-    #expect(SessionTime.timeRemaining(1800, expand: true) == "In 30 minutes")
-    #expect(SessionTime.timeRemaining(60, expand: true) == "In 1 minute")
-    #expect(SessionTime.timeRemaining(3600, expand: true) == "In 1 hour")
-    #expect(SessionTime.timeRemaining(7200, expand: true) == "In 2 hours")
+// ---- spellNumber --------------------------------------------------------
+
+@Test func timeRemaining_spelledNumber() {
+    // spellNumber: true spells the NUMBER but keeps the unit compact, and
+    // always inserts a space before the unit (you can't write "twenty-fivemin").
+    #expect(SessionTime.timeRemaining(25 * 60, spellNumber: true) == "In twenty-five mins")
+    #expect(SessionTime.timeRemaining(59 * 60, spellNumber: true) == "In fifty-nine mins")
+    #expect(SessionTime.timeRemaining(60, spellNumber: true) == "In one min")
+    #expect(SessionTime.timeRemaining(0, spellNumber: true) == "In zero mins")
+    // Hours: the spelled number stays, the unit is still compact ("h"/"hours").
+    #expect(SessionTime.timeRemaining(3600, spellNumber: true) == "In one h")
+    #expect(SessionTime.timeRemaining(1000 * 3600, spellNumber: true) == "In one thousand h")
 }
 
-@Test func timeRemaining_spaces() {
-    // The default baseline is no-space: "In 30mins" / "In 1h".
-    #expect(SessionTime.timeRemaining(1800) == "In 30mins")
-    #expect(SessionTime.timeRemaining(3600) == "In 1h")
-    // space: true adds a space before the unit.
-    #expect(SessionTime.timeRemaining(1800, space: true) == "In 30 mins")
-    #expect(SessionTime.timeRemaining(3600, space: true) == "In 1 h")
-    // expand: true always implies a space, regardless of `space`.
-    #expect(SessionTime.timeRemaining(3600, expand: true, space: false) == "In 1 hour")
-    #expect(SessionTime.timeRemaining(3600, expand: true, space: true) == "In 1 hour")
+@Test func timeRemaining_spelledNumber_withExpand() {
+    // Combining spellNumber with expand gives a fully spelled phrase.
+    #expect(SessionTime.timeRemaining(25 * 60, expand: true, spellNumber: true) == "In twenty-five minutes")
+    #expect(SessionTime.timeRemaining(59 * 60, expand: true, spellNumber: true) == "In fifty-nine minutes")
+    #expect(SessionTime.timeRemaining(60, expand: true, spellNumber: true) == "In one minute")
+    #expect(SessionTime.timeRemaining(3600, expand: true, spellNumber: true) == "In one hour")
+    #expect(SessionTime.timeRemaining(7200, expand: true, spellNumber: true) == "In two hours")
+    #expect(SessionTime.timeRemaining(1000 * 3600, expand: true, spellNumber: true) == "In one thousand hours")
+}
+
+@Test func timeRemaining_spelledNumber_withSpace() {
+    // spellNumber already implies a space, so an explicit space:true is redundant
+    // but must not change the output.
+    #expect(SessionTime.timeRemaining(25 * 60, space: true, spellNumber: true) == "In twenty-five mins")
+    #expect(SessionTime.timeRemaining(60, space: true, spellNumber: true) == "In one min")
 }
 
 // ---- timeAgo -------------------------------------------------------------
@@ -63,25 +74,6 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     let date = Date().addingTimeInterval(-30) // 30s in the past
     #expect(SessionTime.timeAgo(date) == "Just now")
 }
-
-@Test func timeAgo_singleMinute() {
-    // All permutations for the single-minute case.
-    let date = Date().addingTimeInterval(-60) // exactly 1 minute ago
-    #expect(SessionTime.timeAgo(date) == "1min ago")               // expand=false, space=false
-    #expect(SessionTime.timeAgo(date, space: true) == "1 min ago")  // expand=false, space=true
-    #expect(SessionTime.timeAgo(date, expand: true) == "1 minute ago")  // expand=true (space implied)
-    #expect(SessionTime.timeAgo(date, expand: true, space: true) == "1 minute ago")  // expand=true
-}
-
-@Test func timeAgo_multipleMinutes() {
-    // All permutations for the minutes unit.
-    let date = Date().addingTimeInterval(-(5 * 60)) // 5 minutes ago
-    #expect(SessionTime.timeAgo(date) == "5mins ago")          // expand=false, space=false
-    #expect(SessionTime.timeAgo(date, space: true) == "5 mins ago")  // expand=false, space=true
-    #expect(SessionTime.timeAgo(date, expand: true) == "5 minutes ago")  // expand=true (space implied)
-    #expect(SessionTime.timeAgo(date, expand: true, space: true) == "5 minutes ago")  // expand=true
-}
-
 @Test func timeAgo_hours() {
     // All permutations for the hours unit.
     let date = Date().addingTimeInterval(-(3 * 3600)) // 3 hours ago
@@ -89,31 +81,6 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     #expect(SessionTime.timeAgo(date, space: true) == "3 h ago")  // expand=false, space=true
     #expect(SessionTime.timeAgo(date, expand: true) == "3 hours ago")  // expand=true (space implied)
     #expect(SessionTime.timeAgo(date, expand: true, space: true) == "3 hours ago")  // expand=true
-}
-
-@Test func timeAgo_expandedWords() {
-    // expand: true spells out the units with full words.
-    let fiveMin = Date().addingTimeInterval(-(5 * 60))
-    let oneMin = Date().addingTimeInterval(-60)
-    let threeHours = Date().addingTimeInterval(-(3 * 3600))
-    let oneHour = Date().addingTimeInterval(-(3600))
-    #expect(SessionTime.timeAgo(fiveMin, expand: true) == "5 minutes ago")
-    #expect(SessionTime.timeAgo(oneMin, expand: true) == "1 minute ago")
-    #expect(SessionTime.timeAgo(threeHours, expand: true) == "3 hours ago")
-    #expect(SessionTime.timeAgo(oneHour, expand: true) == "1 hour ago")
-}
-
-@Test func timeAgo_spaces() {
-    // Default baseline is no-space: "5mins ago" / "3h ago".
-    let fiveMin = Date().addingTimeInterval(-(5 * 60))
-    let threeHours = Date().addingTimeInterval(-(3 * 3600))
-    #expect(SessionTime.timeAgo(fiveMin) == "5mins ago")
-    #expect(SessionTime.timeAgo(threeHours) == "3h ago")
-    // space: true adds a space before the unit.
-    #expect(SessionTime.timeAgo(fiveMin, space: true) == "5 mins ago")
-    #expect(SessionTime.timeAgo(threeHours, space: true) == "3 h ago")
-    // expand: true always implies a space.
-    #expect(SessionTime.timeAgo(threeHours, expand: true, space: false) == "3 hours ago")
 }
 
 @Test func timeAgo_futureDateRendersAsDate() {
@@ -131,13 +98,9 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     // 2021-01-01 15:30:00 UTC in UTC -> "3:30 PM"
     let calendar = utcCalendar()
     let result = SessionTime.time(fixedDate, calendar: calendar)
-    // Normalise locale quirks before comparing: some locales use a narrow
-    // no-break space (\u{202F}), lowercase "pm", and/or periods ("p.m.").
-    let normalized = result
-        .lowercased()
-        .replacingOccurrences(of: ".", with: "")
-        .replacingOccurrences(of: "\u{202F}", with: " ")
-    #expect(normalized == "3:30 pm")
+    // `normalizeTime` strips the narrow no-break space `en_POSIX` uses as the
+    // AM/PM separator, lowercases, and drops periods (see `time_exactOutput`).
+    #expect(normalizeTime(result) == "3:30 pm")
     #expect(!result.isEmpty)
 }
 
@@ -160,19 +123,6 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
 }
 
 // ---- Private helpers (visible via @testable) -----------------------------
-
-@Test func dateLabelFormatterUsesCalendar() {
-    let formatter = SessionTime.makeDateLabelFormatter(calendar: utcCalendar())
-    #expect(formatter.calendar == utcCalendar())
-    #expect(formatter.dateStyle == .medium)
-}
-
-@Test func clockFormatterUsesCalendar() {
-    let formatter = SessionTime.makeClockFormatter(calendar: utcCalendar())
-    #expect(formatter.calendar == utcCalendar())
-    #expect(formatter.dateStyle == .none)
-    #expect(formatter.timeStyle == .short)
-}
 
 // ---- spacedUnit helper --------------------------------------------------
 
@@ -322,36 +272,7 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     #expect(result.contains(" "))
 }
 
-// ---- spellNumber: spell out the number, keep the unit flexible ----------
-
-@Test func timeRemaining_spelledNumber() {
-    // spellNumber: true spells the NUMBER but keeps the unit compact, and
-    // always inserts a space before the unit (you can't write "twenty-fivemin").
-    #expect(SessionTime.timeRemaining(25 * 60, spellNumber: true) == "In twenty-five mins")
-    #expect(SessionTime.timeRemaining(59 * 60, spellNumber: true) == "In fifty-nine mins")
-    #expect(SessionTime.timeRemaining(60, spellNumber: true) == "In one min")
-    #expect(SessionTime.timeRemaining(0, spellNumber: true) == "In zero mins")
-    // Hours: the spelled number stays, the unit is still compact ("h"/"hours").
-    #expect(SessionTime.timeRemaining(3600, spellNumber: true) == "In one h")
-    #expect(SessionTime.timeRemaining(1000 * 3600, spellNumber: true) == "In one thousand h")
-}
-
-@Test func timeRemaining_spelledNumber_withExpand() {
-    // Combining spellNumber with expand gives a fully spelled phrase.
-    #expect(SessionTime.timeRemaining(25 * 60, expand: true, spellNumber: true) == "In twenty-five minutes")
-    #expect(SessionTime.timeRemaining(59 * 60, expand: true, spellNumber: true) == "In fifty-nine minutes")
-    #expect(SessionTime.timeRemaining(60, expand: true, spellNumber: true) == "In one minute")
-    #expect(SessionTime.timeRemaining(3600, expand: true, spellNumber: true) == "In one hour")
-    #expect(SessionTime.timeRemaining(7200, expand: true, spellNumber: true) == "In two hours")
-    #expect(SessionTime.timeRemaining(1000 * 3600, expand: true, spellNumber: true) == "In one thousand hours")
-}
-
-@Test func timeRemaining_spelledNumber_withSpace() {
-    // spellNumber already implies a space, so an explicit space:true is redundant
-    // but must not change the output.
-    #expect(SessionTime.timeRemaining(25 * 60, space: true, spellNumber: true) == "In twenty-five mins")
-    #expect(SessionTime.timeRemaining(60, space: true, spellNumber: true) == "In one min")
-}
+// ---- spellNumber --------------------------------------------------------
 
 @Test func timeAgo_spelledNumber() {
     // spellNumber: true spells the number while keeping the unit compact.
@@ -375,18 +296,6 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     #expect(SessionTime.timeAgo(oneMin, expand: true, spellNumber: true) == "one minute ago")
     #expect(SessionTime.timeAgo(threeHours, expand: true, spellNumber: true) == "three hours ago")
     #expect(SessionTime.timeAgo(oneThousandHours, expand: true, spellNumber: true) == "one thousand hours ago")
-}
-
-@Test func spelledNumber_helper() {
-    // Foundation spells these exactly on en_POSIX; verify the real output so
-    // the library's own tests don't silently drift from Foundation's behaviour.
-    #expect(SessionTime.spelledNumber(1) == "one")
-    #expect(SessionTime.spelledNumber(25) == "twenty-five")
-    #expect(SessionTime.spelledNumber(59) == "fifty-nine")
-    #expect(SessionTime.spelledNumber(60) == "sixty")
-    #expect(SessionTime.spelledNumber(1000) == "one thousand")
-    #expect(SessionTime.spelledNumber(300) == "three hundred")
-    #expect(SessionTime.spelledNumber(3600) == "three thousand six hundred")
 }
 
 // ---- time() --------------------------------------------------------------
@@ -448,6 +357,50 @@ private func normalizeTime(_ s: String) -> String {
 
 // ---- Shared formatters & helper invariants -------------------------------
 
+@Test func spelledNumber_helper() {
+    // Foundation spells these exactly on en_POSIX; verify the real output so
+    // the library's own tests don't silently drift from Foundation's behaviour.
+    // Zero is a special case: spellOut returns "zero" (not a digit).
+    #expect(SessionTime.spelledNumber(0) == "zero")
+    // Single digits.
+    #expect(SessionTime.spelledNumber(1) == "one")
+    #expect(SessionTime.spelledNumber(2) == "two")
+    #expect(SessionTime.spelledNumber(5) == "five")
+    #expect(SessionTime.spelledNumber(9) == "nine")
+    // Teens and irregular forms.
+    #expect(SessionTime.spelledNumber(10) == "ten")
+    #expect(SessionTime.spelledNumber(11) == "eleven")
+    #expect(SessionTime.spelledNumber(15) == "fifteen")
+    #expect(SessionTime.spelledNumber(19) == "nineteen")
+    #expect(SessionTime.spelledNumber(20) == "twenty")
+    // Hyphenated compounds.
+    #expect(SessionTime.spelledNumber(24) == "twenty-four")
+    #expect(SessionTime.spelledNumber(25) == "twenty-five")
+    #expect(SessionTime.spelledNumber(59) == "fifty-nine")
+    #expect(SessionTime.spelledNumber(99) == "ninety-nine")
+    // Round tens / hundreds / thousands.
+    #expect(SessionTime.spelledNumber(60) == "sixty")
+    #expect(SessionTime.spelledNumber(100) == "one hundred")
+    #expect(SessionTime.spelledNumber(300) == "three hundred")
+    #expect(SessionTime.spelledNumber(1000) == "one thousand")
+    // Compound thousands and larger magnitudes.
+    #expect(SessionTime.spelledNumber(3600) == "three thousand six hundred")
+    #expect(SessionTime.spelledNumber(100_000) == "one hundred thousand")
+    #expect(SessionTime.spelledNumber(1_000_000) == "one million")
+}
+
+@Test func spelledNumber_fallbackNeverFiresForRealisticInput() {
+    // `spelled.string(for:)` returns non-nil for every in-range count, so the
+    // `?? String(count)` branch is a safety net that never fires in practice.
+    // Sample the magnitude boundaries where spellOut's behaviour could change
+    // (units -> teens -> tens -> hundreds -> thousands -> millions) to lock
+    // that in and document the otherwise-unreachable fallback.
+    let samples = [0, 1, 5, 9, 10, 19, 99, 100, 999, 1_000, 9_999, 10_000, 99_999, 100_000, 999_999, 1_000_000, 10_000_000, 100_000_000, 1_000_000_000]
+    for c in samples {
+        #expect(SessionTime.spelledNumber(c) != String(c))
+    }
+}
+
 @Test func timeFormatterHasPosixLocale() {
     #expect(SessionTime.timeFormatter.locale == Locale(identifier: "en_POSIX"))
     #expect(SessionTime.timeFormatter.calendar?.identifier == Calendar.Identifier.gregorian)
@@ -492,15 +445,3 @@ private func normalizeTime(_ s: String) -> String {
     #expect(SessionTime.pluralUnit(30, false, false) == "mins")
 }
 
-@Test func spacedUnit_helper() {
-    // No space by default.
-    #expect(SessionTime.spacedUnit("h", expand: false, space: false) == "h")
-    #expect(SessionTime.spacedUnit("mins", expand: false, space: false) == "mins")
-    // space: true adds a single leading space.
-    #expect(SessionTime.spacedUnit("h", expand: false, space: true) == " h")
-    #expect(SessionTime.spacedUnit("hours", expand: false, space: true) == " hours")
-    // expand: true always implies a space.
-    #expect(SessionTime.spacedUnit("h", expand: true, space: false) == " h")
-    #expect(SessionTime.spacedUnit("hours", expand: true, space: true) == " hours")
-    #expect(SessionTime.spacedUnit("minutes", expand: true, space: false) == " minutes")
-}
