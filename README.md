@@ -124,6 +124,10 @@ SessionTime.timeAgo(someDate, expand: true)       // "5 minutes ago"
   the current timezone is used.
 - **Thread safety.** Each call copies the shared formatter, so concurrent use
   is safe.
+- **Calendar.** All output uses the **Gregorian calendar**. Pass a `calendar:`
+  only to set the *timezone* — the calendar identifier is always Gregorian and
+  can't be changed. If you need Hijri, Hebrew, Persian, or other calendars, use
+  a different library or convert the `Date` yourself before calling these helpers.
 
 ## Testing
 
