@@ -197,3 +197,243 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     #expect(SessionTime.spacedUnit("hours", expand: true, space: false) == " hours")
     #expect(SessionTime.spacedUnit("minutes", expand: true, space: false) == " minutes")
 }
+
+// ---- timeRemaining: boundaries, truncation, singular/plural edges --------
+
+@Test func timeRemaining_minuteBoundary() {
+    // Just under the hour stays in the minutes branch.
+    #expect(SessionTime.timeRemaining(3599) == "In 59mins")   // 59 min 59 s -> 59 min
+    #expect(SessionTime.timeRemaining(3540) == "In 59mins")   // exactly 59 min
+    // Just over the hour flips to hours (1 hour, 1 second -> 1h).
+    #expect(SessionTime.timeRemaining(3601) == "In 1h")
+    // Exactly the hour boundary.
+    #expect(SessionTime.timeRemaining(3600) == "In 1h")
+}
+
+@Test func timeRemaining_hourBoundary() {
+    // Singular hour with a non-round count (1 h 59 m 59 s -> 1h).
+    #expect(SessionTime.timeRemaining(7199) == "In 1h")
+    // Plural hours, round and non-round.
+    #expect(SessionTime.timeRemaining(7200) == "In 2h")
+    #expect(SessionTime.timeRemaining(3_600_000) == "In 1000h")
+    // A full day.
+    #expect(SessionTime.timeRemaining(86_400) == "In 24h")
+}
+
+@Test func timeRemaining_minutesPermutations() {
+    // Every expand/space combo for the minutes unit, singular and plural.
+    #expect(SessionTime.timeRemaining(1800) == "In 30mins")
+    #expect(SessionTime.timeRemaining(1800, space: true) == "In 30 mins")
+    #expect(SessionTime.timeRemaining(1800, expand: true) == "In 30 minutes")
+    #expect(SessionTime.timeRemaining(1800, expand: true, space: true) == "In 30 minutes")
+    // Singular minute.
+    #expect(SessionTime.timeRemaining(60) == "In 1min")
+    #expect(SessionTime.timeRemaining(60, space: true) == "In 1 min")
+    #expect(SessionTime.timeRemaining(60, expand: true) == "In 1 minute")
+    #expect(SessionTime.timeRemaining(60, expand: true, space: true) == "In 1 minute")
+    // Zero minutes.
+    #expect(SessionTime.timeRemaining(0) == "In 0mins")
+    #expect(SessionTime.timeRemaining(0, space: true) == "In 0 mins")
+    #expect(SessionTime.timeRemaining(0, expand: true) == "In 0 minutes")
+    // Under a minute still reports 0 minutes (not a crash).
+    #expect(SessionTime.timeRemaining(59) == "In 0mins")
+}
+
+@Test func timeRemaining_hoursPermutations() {
+    // Every expand/space combo for the hours unit, singular and plural.
+    #expect(SessionTime.timeRemaining(3600) == "In 1h")
+    #expect(SessionTime.timeRemaining(3600, space: true) == "In 1 h")
+    #expect(SessionTime.timeRemaining(3600, expand: true) == "In 1 hour")
+    #expect(SessionTime.timeRemaining(3600, expand: true, space: true) == "In 1 hour")
+    #expect(SessionTime.timeRemaining(7200) == "In 2h")
+    #expect(SessionTime.timeRemaining(7200, space: true) == "In 2 h")
+    #expect(SessionTime.timeRemaining(7200, expand: true) == "In 2 hours")
+    #expect(SessionTime.timeRemaining(86_400, space: true) == "In 24 h")
+}
+
+@Test func timeRemaining_truncatesFractionalSeconds() {
+    // `Int(interval)` truncates toward zero, so sub-second intervals lose the
+    // fractional part before computing the unit word.
+    #expect(SessionTime.timeRemaining(1800.5) == "In 30mins")
+    #expect(SessionTime.timeRemaining(60.5) == "In 1min")
+    #expect(SessionTime.timeRemaining(0.5) == "In 0mins")
+    // Truncation still flips the branch correctly just over the hour boundary.
+    #expect(SessionTime.timeRemaining(3600.9) == "In 1h")
+}
+
+// ---- timeAgo: boundaries, truncation, singular/plural edges --------------
+
+@Test func timeAgo_justNowBoundary() {
+    // Just under 60s is still "Just now"; 60s lands in the minutes branch.
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-59)) == "Just now")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-59.999)) == "Just now")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60)) == "1min ago")
+    // A couple of minutes via a non-round interval.
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-119)) == "1min ago")
+    // 9 minutes.
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-599)) == "9mins ago")
+    // 59 minutes (non-round).
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3599)) == "59mins ago")
+}
+
+@Test func timeAgo_minutesPermutations() {
+    // Every expand/space combo for minutes, singular and plural.
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300)) == "5mins ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), space: true) == "5 mins ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), expand: true) == "5 minutes ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), expand: true, space: true) == "5 minutes ago")
+    // Singular minute.
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60)) == "1min ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), space: true) == "1 min ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), expand: true) == "1 minute ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), expand: true, space: true) == "1 minute ago")
+}
+
+@Test func timeAgo_hourBoundary() {
+    // Just under the hour stays in minutes (59 min 59 s -> 59 min).
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3599)) == "59mins ago")
+    // Exactly/just over the hour -> singular hour (skew keeps diff >= 3600).
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600)) == "1h ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7199)) == "1h ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7200)) == "2h ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-86_400)) == "24h ago")
+}
+
+@Test func timeAgo_hoursPermutations() {
+    // Every expand/space combo for hours, singular and plural.
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600)) == "1h ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), space: true) == "1 h ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), expand: true) == "1 hour ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), expand: true, space: true) == "1 hour ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7200), space: true) == "2 h ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7200), expand: true) == "2 hours ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-86400), space: true) == "24 h ago")
+}
+
+@Test func timeAgo_futureDatePermutations() {
+    // A future date renders as a medium-style date regardless of expand/space.
+    let future = Date().addingTimeInterval(86_400)
+    #expect(SessionTime.timeAgo(future) == SessionTime.timeAgo(future, space: true))
+    #expect(SessionTime.timeAgo(future, expand: true) == SessionTime.timeAgo(future, expand: true, space: true))
+    #expect(!SessionTime.timeAgo(future).isEmpty)
+    // With an explicit calendar the date string is still produced.
+    let farFuture = utcCalendar().startOfDay(for: fixedDate).addingTimeInterval(86_400)
+    let result = SessionTime.timeAgo(farFuture, calendar: utcCalendar())
+    #expect(result.contains(" "))
+}
+
+// ---- time() --------------------------------------------------------------
+
+@Test func time_exactOutput() {
+    // `en_POSIX` short style separates the time from AM/PM with a narrow
+    // no-break space (\u{202F}); normalize it to a regular space before comparing
+    // (same approach as `time_shortClockTime`).
+    let calendar = utcCalendar()
+    let noon = fixedDate.addingTimeInterval(-12_600)   // 2021-01-01 12:00:00 UTC
+    let midnight = fixedDate.addingTimeInterval(-55_800) // 2021-01-01 00:00:00 UTC
+    #expect(normalizeTime(SessionTime.time(noon, calendar: calendar)) == "12:00 pm")
+    #expect(normalizeTime(SessionTime.time(midnight, calendar: calendar)) == "12:00 am")
+}
+
+@Test func time_timezoneShiftsOutput() {
+    // 15:30 UTC is 10:30 AM EST (America/New_York is UTC-5 in January).
+    var ny = utcCalendar()
+    ny.timeZone = TimeZone(identifier: "America/New_York")!
+    #expect(normalizeTime(SessionTime.time(fixedDate, calendar: ny)) == "10:30 am")
+    // Positive offset: 15:30 UTC + 9h = 00:30 next day = 12:30 AM in Asia/Tokyo (UTC+9).
+    var tokyo = utcCalendar()
+    tokyo.timeZone = TimeZone(identifier: "Asia/Tokyo")!
+    #expect(normalizeTime(SessionTime.time(fixedDate, calendar: tokyo)) == "12:30 am")
+}
+
+// Normalises the narrow no-break space that `en_POSIX` uses as the AM/PM separator.
+private func normalizeTime(_ s: String) -> String {
+    s.lowercased()
+        .replacingOccurrences(of: "\u{202F}", with: " ")
+        .replacingOccurrences(of: ".", with: "")
+}
+
+// dateLabel's today/tomorrow detection is relative to the real current date,
+// so it can't be asserted deterministically against a fixed 2021 date. The
+// Date()-based `dateLabel_todayIsEmpty` / `dateLabel_tomorrowIsLabelled` tests
+// already cover those branches. Instead, assert the timezone-sensitive date
+// formatting (medium style) and that today/tomorrow detection honours the
+// calendar's timezone.
+@Test func dateLabel_timezoneAffectsFormatting() {
+    // 15:30 UTC is 10:30 AM EST the SAME day in New York -> medium date unchanged.
+    var ny = utcCalendar()
+    ny.timeZone = TimeZone(identifier: "America/New_York")!
+    #expect(SessionTime.dateLabel(fixedDate, calendar: ny) == "Jan 1, 2021")
+    // The UTC representation still formats as the medium-style date.
+    #expect(SessionTime.dateLabel(fixedDate, calendar: utcCalendar()) == "Jan 1, 2021")
+}
+
+// ---- dateLabel -----------------------------------------------------------
+
+@Test func dateLabel_deterministicFormattedDates() {
+    // Far-ish future/past with an explicit UTC calendar avoids Date()-based drift.
+    let future = fixedDate.addingTimeInterval(86_400)   // 2021-01-02
+    let past = fixedDate.addingTimeInterval(-86_400)    // 2020-12-31
+    #expect(SessionTime.dateLabel(future, calendar: utcCalendar()) == "Jan 2, 2021")
+    #expect(SessionTime.dateLabel(past, calendar: utcCalendar()) == "Dec 31, 2020")
+}
+
+
+// ---- Shared formatters & helper invariants -------------------------------
+
+@Test func timeFormatterHasPosixLocale() {
+    #expect(SessionTime.timeFormatter.locale == Locale(identifier: "en_POSIX"))
+    #expect(SessionTime.timeFormatter.calendar?.identifier == Calendar.Identifier.gregorian)
+    #expect(SessionTime.timeFormatter.dateStyle == .none)
+    #expect(SessionTime.timeFormatter.timeStyle == .short)
+}
+
+@Test func dateLabelFormatterHasPosixLocale() {
+    #expect(SessionTime.dateLabelFormatter.locale == Locale(identifier: "en_POSIX"))
+    #expect(SessionTime.dateLabelFormatter.calendar?.identifier == Calendar.Identifier.gregorian)
+    #expect(SessionTime.dateLabelFormatter.dateStyle == .medium)
+}
+
+@Test func makeDateLabelFormatterSetsTimeZone() {
+    let calendar = utcCalendar()
+    let formatter = SessionTime.makeDateLabelFormatter(calendar: calendar)
+    #expect(formatter.calendar == calendar)
+    #expect(formatter.dateStyle == .medium)
+    #expect(formatter.timeZone == calendar.timeZone)
+}
+
+@Test func makeClockFormatterSetsTimeZone() {
+    var ny = utcCalendar()
+    ny.timeZone = TimeZone(identifier: "America/New_York")!
+    let formatter = SessionTime.makeClockFormatter(calendar: ny)
+    #expect(formatter.calendar == ny)
+    #expect(formatter.dateStyle == .none)
+    #expect(formatter.timeStyle == .short)
+    #expect(formatter.timeZone == ny.timeZone)
+}
+
+@Test func pluralUnit_helper() {
+    // expand: true
+    #expect(SessionTime.pluralUnit(1, true, true) == "hour")
+    #expect(SessionTime.pluralUnit(2, true, true) == "hours")
+    #expect(SessionTime.pluralUnit(1, true, false) == "minute")
+    #expect(SessionTime.pluralUnit(30, true, false) == "minutes")
+    // expand: false (compact)
+    #expect(SessionTime.pluralUnit(1, false, true) == "h")
+    #expect(SessionTime.pluralUnit(2, false, true) == "h")
+    #expect(SessionTime.pluralUnit(1, false, false) == "min")
+    #expect(SessionTime.pluralUnit(30, false, false) == "mins")
+}
+
+@Test func spacedUnit_helper() {
+    // No space by default.
+    #expect(SessionTime.spacedUnit("h", expand: false, space: false) == "h")
+    #expect(SessionTime.spacedUnit("mins", expand: false, space: false) == "mins")
+    // space: true adds a single leading space.
+    #expect(SessionTime.spacedUnit("h", expand: false, space: true) == " h")
+    #expect(SessionTime.spacedUnit("hours", expand: false, space: true) == " hours")
+    // expand: true always implies a space.
+    #expect(SessionTime.spacedUnit("h", expand: true, space: false) == " h")
+    #expect(SessionTime.spacedUnit("hours", expand: true, space: true) == " hours")
+    #expect(SessionTime.spacedUnit("minutes", expand: true, space: false) == " minutes")
+}
