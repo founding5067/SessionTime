@@ -34,19 +34,28 @@ public enum SessionTime {
         return formatter
     }()
 
-    /// "In 30 mins" / "In 2h" — time until a session, for later today.
-    public static func timeRemaining(_ interval: TimeInterval) -> String {
+    /// "In 30mins" / "In 2h" — time until a session, for later today.
+    /// Pass `expand: true` for full words and a space: "In 30 minutes" / "In 2 hours".
+    /// Pass `space: true` to add a space before the unit in the compact form:
+    /// "In 30 mins" / "In 2 h".
+    public static func timeRemaining(_ interval: TimeInterval, expand: Bool = false, space: Bool = false) -> String {
         if interval < 3600 {
             let minutes = Int(interval) / 60
-            return "In \(minutes) mins"
+            let word = pluralUnit(minutes, expand, false)
+            return "In \(minutes)\(spacedUnit(word, expand: expand, space: space))"
         } else {
-            return "In \(Int(interval / 3600))h"
+            let hours = Int(interval / 3600)
+            let word = pluralUnit(hours, expand, true)
+            return "In \(hours)\(spacedUnit(word, expand: expand, space: space))"
         }
     }
 
-    /// "Just now" / "5 mins ago" / "3h ago" — a session that has already happened.
+    /// "Just now" / "5mins ago" / "3h ago" — a session that has already happened.
     /// An old session (before `date`) renders as a plain medium-style date.
-    public static func timeAgo(_ date: Date, calendar: Calendar = .current) -> String {
+    /// Pass `expand: true` for full words and a space: "5 minutes ago" / "3 hours ago".
+    /// Pass `space: true` to add a space before the unit in the compact form:
+    /// "5 mins ago" / "3 h ago".
+    public static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
 
@@ -59,14 +68,12 @@ public enum SessionTime {
             return "Just now"
         } else if diff < 3600 {
             let minutes = Int(diff) / 60
-            if minutes > 1 {
-                return "\(minutes) mins ago"
-            } else {
-                return "\(minutes) min ago"
-            }
+            let word = pluralUnit(minutes, expand, false)
+            return "\(minutes)\(spacedUnit(word, expand: expand, space: space)) ago"
         } else {
             let hours = Int(diff) / 3600
-            return "\(hours)h ago"
+            let word = pluralUnit(hours, expand, true)
+            return "\(hours)\(spacedUnit(word, expand: expand, space: space)) ago"
         }
     }
 
@@ -88,8 +95,9 @@ public enum SessionTime {
         }
     }
 
-    // Builds a copy of the shared formatter with the requested calendar, so each
-    // `internal` (not `private`) so tests can assert the calendar/style directly.
+    // Builds a copy of the shared formatter with the requested calendar and
+    // timezone, so each call is independent and thread-safe. It's `internal`
+    // (not `private`) so tests can assert the calendar/style directly.
     internal static func makeDateLabelFormatter(calendar: Calendar) -> DateFormatter {
         let formatter = SessionTime.dateLabelFormatter.copy() as! DateFormatter
         formatter.calendar = calendar
@@ -105,5 +113,25 @@ public enum SessionTime {
         // host machine's timezone.
         formatter.timeZone = calendar.timeZone
         return formatter
+    }
+
+    // Prepends a leading space to a unit word when requested. `expand` always
+    // implies a space (natural English: "In 2 hours"); otherwise the separator
+    // follows the `space` flag. Singular/plural is chosen by the `pluralUnit(...)` helper.
+    internal static func spacedUnit(_ unit: String, expand: Bool, space: Bool) -> String {
+        let separator = expand || space ? " " : ""
+        return "\(separator)\(unit)"
+    }
+
+    // Picks the unit word for a count. Compact hours are invariant ("h");
+    // minutes use "min"/"mins". The expanded form uses full words with the
+    // correct singular/plural ("minute"/"minutes", "hour"/"hours").
+    internal static func pluralUnit(_ count: Int, _ expand: Bool, _ isHour: Bool) -> String {
+        switch expand {
+        case true:
+            return isHour ? (count == 1 ? "hour" : "hours") : (count == 1 ? "minute" : "minutes")
+        case false:
+            return isHour ? "h" : (count == 1 ? "min" : "mins")
+        }
     }
 }
