@@ -19,6 +19,8 @@ public enum SessionTime {
     // each call thread-safe (no shared mutable state).
     public static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter
@@ -26,6 +28,8 @@ public enum SessionTime {
 
     public static let dateLabelFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateStyle = .medium
         return formatter
     }()
@@ -85,17 +89,21 @@ public enum SessionTime {
     }
 
     // Builds a copy of the shared formatter with the requested calendar, so each
-    //
     // `internal` (not `private`) so tests can assert the calendar/style directly.
     internal static func makeDateLabelFormatter(calendar: Calendar) -> DateFormatter {
         let formatter = SessionTime.dateLabelFormatter.copy() as! DateFormatter
         formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
         return formatter
     }
 
     internal static func makeClockFormatter(calendar: Calendar) -> DateFormatter {
         let formatter = SessionTime.timeFormatter.copy() as! DateFormatter
         formatter.calendar = calendar
+        // `timeStyle` uses the formatter's own `timeZone` property (not the
+        // calendar's), so set it explicitly — otherwise output shifts by the
+        // host machine's timezone.
+        formatter.timeZone = calendar.timeZone
         return formatter
     }
 }
