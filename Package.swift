@@ -5,6 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "SessionTime",
+    version: "1.0.0",
     platforms: [
         // This package only targets Apple platforms. `platforms` declares the
         // minimum OS version each family can use, so SwiftPM can resolve this as

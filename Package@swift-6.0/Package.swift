@@ -11,6 +11,7 @@ import PackageDescription
 
 let package = Package(
     name: "SessionTime",
+    version: "1.0.0",
     platforms: [
         .iOS(.v16),
         .macOS(.v13),

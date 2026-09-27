@@ -25,26 +25,26 @@ UI — "In 2h", "5 mins ago", "3:30 PM", "Tomorrow" — without duplicating
 
 ## Installation
 
+Add the package as a dependency in your `Package.swift`, then resolve it.
+
 ### Swift Package Manager (Xcode)
 
-1. In Xcode, **File ▸ Add Packages…**
-2. Enter the repository URL: `(https://github.com/founding5067/SessionTime)`
-3. Choose **Uplink** (or **Local**) as the source.
+1. **File > Add Packages...**
+2. Enter the repository URL: `https://github.com/founding5067/SessionTime`
 
 ### Swift Package Manager (command line)
 
-```sh
-swift package .
+Add the package to the `dependencies` array in your `Package.swift`:
+
+```swift
+.package(url: "https://github.com/founding5067/SessionTime", from: "1.0.0")
 ```
 
-### GitHub
+Then resolve dependencies:
 
-1. Create a [GitHub account](https://github.com/signup) if you don't have one.
-2. Click the **Watch** button on the repository page.
-3. Go to **Settings ▸ Applications ▸ Marketplaces** and click **Add** for
-   "SessionTime".
-4. In your project, **File ▸ Add Package Dependency…** and search for
-   "SessionTime".
+```sh
+swift package resolve
+```
 
 ## Usage
 
