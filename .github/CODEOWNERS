@@ -1,2 +1,4 @@
-# This user controls Codeowners of docs and similar paths and can merge pull requests that include them.
-*     founding5067
+# Syntax: pattern [indentation] username
+# Blank lines or `#` comments are valid
+# *     = all paths (root pattern)
+* founding5067
