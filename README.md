@@ -28,7 +28,7 @@ UI — "In 2h", "5 mins ago", "3:30 PM", "Tomorrow" — without duplicating
 ### Swift Package Manager (Xcode)
 
 1. In Xcode, **File ▸ Add Packages…**
-2. Enter the repository URL: `https://github.com/colebraswell/SessionTime`
+2. Enter the repository URL: `(https://github.com/founding5067/SessionTime)`
 3. Choose **Uplink** (or **Local**) as the source.
 
 ### Swift Package Manager (command line)
