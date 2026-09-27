@@ -1,0 +1,44 @@
+# For most repositories, no changes are needed. Simply start using CodeQL to get started!
+# CodeQL will automatically configure itself for your language folders and analyze your code.
+# https://docs.github.com/en/code-security/code-scanning/creating-your-own-code-scanning-workflow
+
+# Popular CodeQL configuration example: https://github.com/github/docs/blob/main/docs/code-security/code-scanning/creating-your-own-code-scanning-workflow.md
+
+name: Code Scanning
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  CodeQL:
+    if: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.actor != 'founding5067') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [swift, ruby, javascript]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-and-policy
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          database: ${{ matrix.language }}
+
+      - name: Upload results to Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

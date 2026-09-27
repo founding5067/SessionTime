@@ -1,0 +1,78 @@
+# Issue Creator Template Selector
+# This helps contributors select the appropriate issue template
+
+name: Issue Creator
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  create-issue:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: Check issue type
+        id: check-issue
+        run: |
+          ISSUE_TYPE=""
+          if [[ "${{ github.event.comment.body }}" =~ "#\s*Bug\s*Report" ]]; then
+            ISSUE_TYPE="bug_report"
+          elif [[ "${{ github.event.comment.body }}" =~ "#\s*Feature\s*Request" ]]; then
+            ISSUE_TYPE="feature_request"
+          elif [[ "${{ github.event.comment.body }}" =~ "#\s*Documentation/Improvement" ]]; then
+            ISSUE_TYPE="docs"
+          fi
+          
+          echo "ISSUE_TYPE=${ISSUE_TYPE}" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: Create/Update Issue with Template
+        if: steps.check-issue.outputs.ISSUE_TYPE != ''
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueType = '${{ steps.check-issue.outputs.ISSUE_TYPE }}';
+            const issueNumber = ${{ github.event.issue.number }};
+            
+            const templatePath = `ISSUE_TEMPLATE/${issueType}.md`;
+            const templateContent = await readFileSync(templatePath, 'utf8');
+            
+            const issue = await github.rest.issues.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber
+            });
+            
+            const body = issue.data.body;
+            
+            // Preserve original issue details (titles)
+            const title = issue.data.title;
+            
+            // Create updated issue
+            const updatedIssue = await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: templateContent
+            });
+            
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              title: updatedIssue.data.title
+            });
+            
+            console.log('Issue updated with selected template');
+
+      - name: Notify User
+        if: steps.check-issue.outputs.ISSUE_TYPE == ''
+        run: |
+          echo "Please select an issue type with a comment like: # Bug Report or # Feature Request"
+          echo "Options: Bug Report, Feature Request, Documentation/Improvement, Other"
