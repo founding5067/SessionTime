@@ -35,35 +35,37 @@ public enum SessionTime {
     }()
 
     /// "In 30mins" / "In 2h" — time until a session, for later today.
-    /// Pass `expand: true` for full words and a space: "In 30 minutes" / "In 2 hours".
-    /// Pass `space: true` to add a space before the unit in the compact form:
-    /// "In 30 mins" / "In 2 h".
-    /// Pass `spellNumber: true` to spell out the number while keeping the unit
-    /// compact: "In twenty-five mins". Spelling the number always adds a space,
-    /// so `spellNumber` can be combined with `expand` for a fully spelled phrase:
-    /// "In twenty-five minutes".
+    /// `expand` only chooses the word: "In 30 minutes" / "In 2 hours" (vs the
+    /// compact "In 30mins" / "In 2h"). It never adds a space.
+    /// `space` independently adds a space before the unit in the compact form:
+    /// "In 30 mins" / "In 2 h". Combine it with `expand` if you want the space
+    /// with the full word: "In 30 minutes".
+    /// `spellNumber: true` spells the number while keeping the unit compact:
+    /// "In twenty-five min". It does NOT add a space — spacing is controlled
+    /// only by `space`, so pass `space: true` for "In twenty-five mins".
     public static func timeRemaining(_ interval: TimeInterval, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
         let isHour = interval >= 3600
         let count = isHour ? Int(interval / 3600) : Int(interval) / 60
         let number = spellNumber ? spelledNumber(count) : String(count)
         let word = pluralUnit(count, expand, isHour)
-        let separator = expand || space || spellNumber ? " " : ""
+        let separator = space ? " " : ""
         return "In \(number)\(separator)\(word)"
     }
 
     /// "Just now" / "5mins ago" / "3h ago" — a session that has already happened.
     /// An old session (before `date`) renders as a plain medium-style date.
-    /// Pass `expand: true` for full words and a space: "5 minutes ago" / "3 hours ago".
-    /// Pass `space: true` to add a space before the unit in the compact form:
-    /// "5 mins ago" / "3 h ago".
-    /// Pass `spellNumber: true` to spell out the number while keeping the unit
-    /// compact: "five minutes ago" / "three h ago". Spelling the number always
-    /// adds a space, so `spellNumber` can combine with `expand` for a fully
-    /// spelled phrase: "five minutes ago" / "three hours ago".
+    /// `expand` only chooses the word: "5 minutes ago" / "3 hours ago" (vs the
+    /// compact "5mins ago" / "3h ago"). It never adds a space.
+    /// `space` independently adds a space before the unit in the compact form:
+    /// "5 mins ago" / "3 h ago". Combine it with `expand` if you want the space
+    /// with the full word: "5 minutes ago".
+    /// `spellNumber: true` spells the number while keeping the unit compact:
+    /// "five min ago" / "three h ago". It does NOT add a space — spacing is
+    /// controlled only by `space`, so pass `space: true` for "five mins ago".
     public static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
-        let separator = expand || space || spellNumber ? " " : ""
+        let separator = space ? " " : ""
 
         if diff < 0 {
             let formatter = makeDateLabelFormatter(calendar: calendar)
@@ -123,11 +125,12 @@ public enum SessionTime {
         return formatter
     }
 
-    // Prepends a leading space to a unit word when requested. `expand` always
-    // implies a space (natural English: "In 2 hours"); otherwise the separator
-    // follows the `space` flag. Singular/plural is chosen by the `pluralUnit(...)` helper.
+    // Prepends a leading space to a unit word when the `space` flag is set.
+    // Spacing is the user's choice: `expand` only swaps the compact unit for
+    // the full word, it never forces a space. Singular/plural is chosen by the
+    // `pluralUnit(...)` helper.
     internal static func spacedUnit(_ unit: String, expand: Bool, space: Bool) -> String {
-        let separator = expand || space ? " " : ""
+        let separator = space ? " " : ""
         return "\(separator)\(unit)"
     }
 

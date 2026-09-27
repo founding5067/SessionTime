@@ -20,15 +20,19 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     // Cover every permutation of expand / space for the minutes unit.
     #expect(SessionTime.timeRemaining(1800) == "In 30mins")         // expand=false, space=false
     #expect(SessionTime.timeRemaining(1800, space: true) == "In 30 mins")  // expand=false, space=true
-    #expect(SessionTime.timeRemaining(1800, expand: true) == "In 30 minutes")  // expand=true (space implied)
-    #expect(SessionTime.timeRemaining(1800, expand: true, space: true) == "In 30 minutes")  // expand=true
+    // `expand` only picks the word; it never forces a space.
+    #expect(SessionTime.timeRemaining(1800, expand: true) == "In 30minutes")
+    #expect(SessionTime.timeRemaining(1800, expand: true, space: true) == "In 30 minutes")  // full word + space
     #expect(SessionTime.timeRemaining(300) == "In 5mins")
     #expect(SessionTime.timeRemaining(300, space: true) == "In 5 mins")
     // Singular count drops the trailing 's' ("min"/"minute").
     #expect(SessionTime.timeRemaining(60) == "In 1min")
     #expect(SessionTime.timeRemaining(60, space: true) == "In 1 min")
-    #expect(SessionTime.timeRemaining(60, expand: true) == "In 1 minute")
+    #expect(SessionTime.timeRemaining(60, expand: true) == "In 1minute")
+    #expect(SessionTime.timeRemaining(60, expand: true, space: true) == "In 1 minute")
     #expect(SessionTime.timeRemaining(0) == "In 0mins")
+    #expect(SessionTime.timeRemaining(0, expand: true) == "In 0minutes")
+    #expect(SessionTime.timeRemaining(0, expand: true, space: true) == "In 0 minutes")
 }
 
 @Test func timeRemaining_hours() {
@@ -40,30 +44,42 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
 // ---- spellNumber --------------------------------------------------------
 
 @Test func timeRemaining_spelledNumber() {
-    // spellNumber: true spells the NUMBER but keeps the unit compact, and
-    // always inserts a space before the unit (you can't write "twenty-fivemin").
-    #expect(SessionTime.timeRemaining(25 * 60, spellNumber: true) == "In twenty-five mins")
-    #expect(SessionTime.timeRemaining(59 * 60, spellNumber: true) == "In fifty-nine mins")
-    #expect(SessionTime.timeRemaining(60, spellNumber: true) == "In one min")
-    #expect(SessionTime.timeRemaining(0, spellNumber: true) == "In zero mins")
+    // spellNumber: true spells the NUMBER but keeps the unit compact. It does
+    // NOT force a space — spacing is the user's choice via `space` ("In
+    // twenty-fivemin" unless `space: true` is passed).
+    #expect(SessionTime.timeRemaining(25 * 60, spellNumber: true) == "In twenty-fivemins")
+    #expect(SessionTime.timeRemaining(59 * 60, spellNumber: true) == "In fifty-ninemins")
+    #expect(SessionTime.timeRemaining(60, spellNumber: true) == "In onemin")
+    #expect(SessionTime.timeRemaining(0, spellNumber: true) == "In zeromins")
     // Hours: the spelled number stays, the unit is still compact ("h"/"hours").
-    #expect(SessionTime.timeRemaining(3600, spellNumber: true) == "In one h")
-    #expect(SessionTime.timeRemaining(1000 * 3600, spellNumber: true) == "In one thousand h")
+    #expect(SessionTime.timeRemaining(3600, spellNumber: true) == "In oneh")
+    #expect(SessionTime.timeRemaining(1000 * 3600, spellNumber: true) == "In one thousandh")
+    // `space: true` adds the space the compact form usually can't have.
+    #expect(SessionTime.timeRemaining(25 * 60, space: true ) == "In 25 mins")
+    #expect(SessionTime.timeRemaining(60, space: true, spellNumber: true) == "In one min")
 }
 
 @Test func timeRemaining_spelledNumber_withExpand() {
-    // Combining spellNumber with expand gives a fully spelled phrase.
-    #expect(SessionTime.timeRemaining(25 * 60, expand: true, spellNumber: true) == "In twenty-five minutes")
-    #expect(SessionTime.timeRemaining(59 * 60, expand: true, spellNumber: true) == "In fifty-nine minutes")
-    #expect(SessionTime.timeRemaining(60, expand: true, spellNumber: true) == "In one minute")
-    #expect(SessionTime.timeRemaining(3600, expand: true, spellNumber: true) == "In one hour")
-    #expect(SessionTime.timeRemaining(7200, expand: true, spellNumber: true) == "In two hours")
-    #expect(SessionTime.timeRemaining(1000 * 3600, expand: true, spellNumber: true) == "In one thousand hours")
+    // `expand` picks the full word and `space` adds the space. Neither forces
+    // spacing on its own, so the fully spelled phrase needs both `space: true`.
+    #expect(SessionTime.timeRemaining(25 * 60, expand: true, spellNumber: true) == "In twenty-fiveminutes")
+    #expect(SessionTime.timeRemaining(59 * 60, expand: true, spellNumber: true) == "In fifty-nineminutes")
+    #expect(SessionTime.timeRemaining(60, expand: true, spellNumber: true) == "In oneminute")
+    #expect(SessionTime.timeRemaining(3600, expand: true, spellNumber: true) == "In onehour")
+    #expect(SessionTime.timeRemaining(7200, expand: true, spellNumber: true) == "In twohours")
+    #expect(SessionTime.timeRemaining(1000 * 3600, expand: true, spellNumber: true) == "In one thousandhours")
+    // Add `space: true` for the natural fully-spelled phrases.
+    #expect(SessionTime.timeRemaining(25 * 60, expand: true, space: true, spellNumber: true) == "In twenty-five minutes")
+    #expect(SessionTime.timeRemaining(59 * 60, expand: true, space: true, spellNumber: true) == "In fifty-nine minutes")
+    #expect(SessionTime.timeRemaining(60, expand: true, space: true, spellNumber: true) == "In one minute")
+    #expect(SessionTime.timeRemaining(3600, expand: true, space: true, spellNumber: true) == "In one hour")
+    #expect(SessionTime.timeRemaining(7200, expand: true, space: true, spellNumber: true) == "In two hours")
+    #expect(SessionTime.timeRemaining(1000 * 3600, expand: true, space: true, spellNumber: true) == "In one thousand hours")
 }
 
 @Test func timeRemaining_spelledNumber_withSpace() {
-    // spellNumber already implies a space, so an explicit space:true is redundant
-    // but must not change the output.
+    // spellNumber no longer implies a space, so this is the case that opts the
+    // user in via `space: true` to get the readable "In twenty-five mins".
     #expect(SessionTime.timeRemaining(25 * 60, space: true, spellNumber: true) == "In twenty-five mins")
     #expect(SessionTime.timeRemaining(60, space: true, spellNumber: true) == "In one min")
 }
@@ -79,8 +95,9 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     let date = Date().addingTimeInterval(-(3 * 3600)) // 3 hours ago
     #expect(SessionTime.timeAgo(date) == "3h ago")           // expand=false, space=false
     #expect(SessionTime.timeAgo(date, space: true) == "3 h ago")  // expand=false, space=true
-    #expect(SessionTime.timeAgo(date, expand: true) == "3 hours ago")  // expand=true (space implied)
-    #expect(SessionTime.timeAgo(date, expand: true, space: true) == "3 hours ago")  // expand=true
+    // `expand` picks the word only; it does not force a space.
+    #expect(SessionTime.timeAgo(date, expand: true) == "3hours ago")
+    #expect(SessionTime.timeAgo(date, expand: true, space: true) == "3 hours ago")  // full word + space
 }
 
 @Test func timeAgo_futureDateRendersAsDate() {
@@ -140,12 +157,13 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     #expect(SessionTime.spacedUnit("hours", expand: false, space: true) == " hours")
 }
 
-@Test func spacedUnit_expandForcesSpace() {
-    // `expand: true` always implies a space, regardless of the `space` flag.
-    #expect(SessionTime.spacedUnit("h", expand: true, space: false) == " h")
+@Test func spacedUnit_expandDoesNotForceSpace() {
+    // `expand` only picks the word; it never forces a space. `space: true`
+    // adds the leading space regardless of `expand`.
+    #expect(SessionTime.spacedUnit("h", expand: true, space: false) == "h")
     #expect(SessionTime.spacedUnit("h", expand: true, space: true) == " h")
-    #expect(SessionTime.spacedUnit("hours", expand: true, space: false) == " hours")
-    #expect(SessionTime.spacedUnit("minutes", expand: true, space: false) == " minutes")
+    #expect(SessionTime.spacedUnit("hours", expand: true, space: false) == "hours")
+    #expect(SessionTime.spacedUnit("minutes", expand: true, space: false) == "minutes")
 }
 
 // ---- timeRemaining: boundaries, truncation, singular/plural edges --------
@@ -174,17 +192,17 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     // Every expand/space combo for the minutes unit, singular and plural.
     #expect(SessionTime.timeRemaining(1800) == "In 30mins")
     #expect(SessionTime.timeRemaining(1800, space: true) == "In 30 mins")
-    #expect(SessionTime.timeRemaining(1800, expand: true) == "In 30 minutes")
+    #expect(SessionTime.timeRemaining(1800, expand: true) == "In 30minutes")
     #expect(SessionTime.timeRemaining(1800, expand: true, space: true) == "In 30 minutes")
     // Singular minute.
     #expect(SessionTime.timeRemaining(60) == "In 1min")
     #expect(SessionTime.timeRemaining(60, space: true) == "In 1 min")
-    #expect(SessionTime.timeRemaining(60, expand: true) == "In 1 minute")
+    #expect(SessionTime.timeRemaining(60, expand: true) == "In 1minute")
     #expect(SessionTime.timeRemaining(60, expand: true, space: true) == "In 1 minute")
     // Zero minutes.
     #expect(SessionTime.timeRemaining(0) == "In 0mins")
     #expect(SessionTime.timeRemaining(0, space: true) == "In 0 mins")
-    #expect(SessionTime.timeRemaining(0, expand: true) == "In 0 minutes")
+    #expect(SessionTime.timeRemaining(0, expand: true) == "In 0minutes")
     // Under a minute still reports 0 minutes (not a crash).
     #expect(SessionTime.timeRemaining(59) == "In 0mins")
 }
@@ -193,11 +211,11 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     // Every expand/space combo for the hours unit, singular and plural.
     #expect(SessionTime.timeRemaining(3600) == "In 1h")
     #expect(SessionTime.timeRemaining(3600, space: true) == "In 1 h")
-    #expect(SessionTime.timeRemaining(3600, expand: true) == "In 1 hour")
+    #expect(SessionTime.timeRemaining(3600, expand: true) == "In 1hour")
     #expect(SessionTime.timeRemaining(3600, expand: true, space: true) == "In 1 hour")
     #expect(SessionTime.timeRemaining(7200) == "In 2h")
     #expect(SessionTime.timeRemaining(7200, space: true) == "In 2 h")
-    #expect(SessionTime.timeRemaining(7200, expand: true) == "In 2 hours")
+    #expect(SessionTime.timeRemaining(7200, expand: true) == "In 2hours")
     #expect(SessionTime.timeRemaining(86_400, space: true) == "In 24 h")
 }
 
@@ -230,12 +248,12 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     // Every expand/space combo for minutes, singular and plural.
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300)) == "5mins ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), space: true) == "5 mins ago")
-    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), expand: true) == "5 minutes ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), expand: true) == "5minutes ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-300), expand: true, space: true) == "5 minutes ago")
     // Singular minute.
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60)) == "1min ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), space: true) == "1 min ago")
-    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), expand: true) == "1 minute ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), expand: true) == "1minute ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-60), expand: true, space: true) == "1 minute ago")
 }
 
@@ -253,10 +271,10 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
     // Every expand/space combo for hours, singular and plural.
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600)) == "1h ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), space: true) == "1 h ago")
-    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), expand: true) == "1 hour ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), expand: true) == "1hour ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-3600), expand: true, space: true) == "1 hour ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7200), space: true) == "2 h ago")
-    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7200), expand: true) == "2 hours ago")
+    #expect(SessionTime.timeAgo(Date().addingTimeInterval(-7200), expand: true) == "2hours ago")
     #expect(SessionTime.timeAgo(Date().addingTimeInterval(-86400), space: true) == "24 h ago")
 }
 
@@ -275,27 +293,37 @@ private let fixedDate = Date(timeIntervalSince1970: 1_609_515_000)
 // ---- spellNumber --------------------------------------------------------
 
 @Test func timeAgo_spelledNumber() {
-    // spellNumber: true spells the number while keeping the unit compact.
+    // spellNumber: true spells the number while keeping the unit compact. It
+    // does NOT add a space, so "five min ago" (not "five mins ago") until the
+    // user opts in via `space: true`.
     let fiveMin = Date().addingTimeInterval(-(5 * 60))
     let oneMin = Date().addingTimeInterval(-60)
     let threeHours = Date().addingTimeInterval(-(3 * 3600))
     let oneThousandHours = Date().addingTimeInterval(-(1000 * 3600))
-    #expect(SessionTime.timeAgo(fiveMin, spellNumber: true) == "five mins ago")
-    #expect(SessionTime.timeAgo(oneMin, spellNumber: true) == "one min ago")
-    #expect(SessionTime.timeAgo(threeHours, spellNumber: true) == "three h ago")
-    #expect(SessionTime.timeAgo(oneThousandHours, spellNumber: true) == "one thousand h ago")
+    #expect(SessionTime.timeAgo(fiveMin, spellNumber: true) == "fivemins ago")
+    #expect(SessionTime.timeAgo(oneMin, spellNumber: true) == "onemin ago")
+    #expect(SessionTime.timeAgo(threeHours, spellNumber: true) == "threeh ago")
+    #expect(SessionTime.timeAgo(oneThousandHours, spellNumber: true) == "one thousandh ago")
+    // `space: true` adds the space the compact form usually can't have.
+    #expect(SessionTime.timeAgo(fiveMin, space: true, spellNumber: true) == "five mins ago")
+    #expect(SessionTime.timeAgo(oneMin, space: true, spellNumber: true) == "one min ago")
 }
 
 @Test func timeAgo_spelledNumber_withExpand() {
-    // spellNumber + expand spells both the number and the unit.
+    // spellNumber + expand spells both the number and the unit, but neither
+    // forces a space — add `space: true` for the readable phrases.
     let fiveMin = Date().addingTimeInterval(-(5 * 60))
     let oneMin = Date().addingTimeInterval(-60)
     let threeHours = Date().addingTimeInterval(-(3 * 3600))
     let oneThousandHours = Date().addingTimeInterval(-(1000 * 3600))
-    #expect(SessionTime.timeAgo(fiveMin, expand: true, spellNumber: true) == "five minutes ago")
-    #expect(SessionTime.timeAgo(oneMin, expand: true, spellNumber: true) == "one minute ago")
-    #expect(SessionTime.timeAgo(threeHours, expand: true, spellNumber: true) == "three hours ago")
-    #expect(SessionTime.timeAgo(oneThousandHours, expand: true, spellNumber: true) == "one thousand hours ago")
+    #expect(SessionTime.timeAgo(fiveMin, expand: true, spellNumber: true) == "fiveminutes ago")
+    #expect(SessionTime.timeAgo(oneMin, expand: true, spellNumber: true) == "oneminute ago")
+    #expect(SessionTime.timeAgo(threeHours, expand: true, spellNumber: true) == "threehours ago")
+    #expect(SessionTime.timeAgo(oneThousandHours, expand: true, spellNumber: true) == "one thousandhours ago")
+    #expect(SessionTime.timeAgo(fiveMin, expand: true, space: true, spellNumber: true) == "five minutes ago")
+    #expect(SessionTime.timeAgo(oneMin, expand: true, space: true, spellNumber: true) == "one minute ago")
+    #expect(SessionTime.timeAgo(threeHours, expand: true, space: true, spellNumber: true) == "three hours ago")
+    #expect(SessionTime.timeAgo(oneThousandHours, expand: true, space: true, spellNumber: true) == "one thousand hours ago")
 }
 
 // ---- time() --------------------------------------------------------------
