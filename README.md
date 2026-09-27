@@ -55,10 +55,10 @@ itself is always Gregorian (see **Behavior Notes**).
 ```swift
 import SessionTime
 
-// "In 30 mins" or "In 2h"
+// "In 30mins" by default; `space: true` gives "In 30 mins"
 let minutesFromNow = SessionTime.timeRemaining(1_800) // 1800 seconds
 
-// "5 mins ago" / "3h ago" / a date for something in the past
+// "5mins ago" / "3h ago" / a date for something in the past
 let fiveMinAgo = SessionTime.timeAgo(Date().addingTimeInterval(-300))
 
 // Short clock time: "3:30 PM"
@@ -88,32 +88,35 @@ let label = SessionTime.dateLabel(date, calendar: calendar)
 
 | Function | Signature | Returns |
 | --- | --- | --- |
-| `timeRemaining` | `static func timeRemaining(_ interval: TimeInterval, expand: Bool = false, space: Bool = false) -> String` | `"In 30mins"` / `"In 2h"` (or `"In 30 minutes"` / `"In 2 hours"` with `expand: true`; or `"In 30 mins"` / `"In 2 h"` with `space: true`) |
-| `timeAgo` | `static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false) -> String` | `"Just now"` / `"5mins ago"` / `"3h ago"` / a medium-style date (or `"5 minutes ago"` / `"3 hours ago"` with `expand: true`; or `"5 mins ago"` / `"3 h ago"` with `space: true`) |
+| `timeRemaining` | `static func timeRemaining(_ seconds: TimeInterval, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String` | `"In 30mins"` / `"In 2h"` (or `"In 30minutes"` / `"In 2hours"` with `expand: true`; or `"In 30 mins"` / `"In 2 h"` with `space: true`; or `"In 30 minutes"` / `"In 2 hours"` with `expand: true, space: true`) |
+| `timeAgo` | `static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String` | `"Just now"` / `"5mins ago"` / `"3h ago"` / a medium-style date (or `"5minutes ago"` / `"3hours ago"` with `expand: true`; or `"5 mins ago"` / `"3 h ago"` with `space: true`; or `"5 minutes ago"` / `"3 hours ago"` with `expand: true, space: true`) |
 | `time` | `static func time(_ date: Date, calendar: Calendar = .current) -> String` | Short clock time, e.g. `"3:30 PM"` |
 | `dateLabel` | `static func dateLabel(_ date: Date, calendar: Calendar = .current) -> String` | `""` (today) / `"Tomorrow"` / `"Jun 20"` |
 
 ## Short, spaced, or expanded words
 
-Both `timeRemaining` and `timeAgo` accept two optional flags:
+Both `timeRemaining` and `timeAgo` accept two optional flags. They are
+independent — `expand` chooses the **word**, `space` chooses the **gap** — so
+you can mix them:
 
-- **`expand: true`** spells the units out *and* adds a space — full, natural
-  language. This is the default choice when you want a longer label:
-  `"In 2 hours"`, `"5 minutes ago"`.
-- **`space: true`** keeps the compact units but adds a space before them:
+- **`expand: true`** spells the unit out as a full word but adds **no** space:
+  `"In 2hours"`, `"5minutes ago"`.
+- **`space: true`** keeps the compact unit but adds a space before it:
   `"In 2 h"`, `"5 mins ago"`. The default baseline is no space (`"In 2h"`,
   `"5mins ago"`) so labels stay tight.
-
-`expand` always implies a space, so you don't need both:
+- Pass **both** for the full, natural phrase: `"In 2 hours"`,
+  `"5 minutes ago"`.
 
 ```swift
 SessionTime.timeRemaining(2 * 3600)               // "In 2h"
 SessionTime.timeRemaining(2 * 3600, space: true)  // "In 2 h"
-SessionTime.timeRemaining(2 * 3600, expand: true) // "In 2 hours"
+SessionTime.timeRemaining(2 * 3600, expand: true) // "In 2hours"
+SessionTime.timeRemaining(2 * 3600, expand: true, space: true) // "In 2 hours"
 
 SessionTime.timeAgo(someDate)                     // "5mins ago"
 SessionTime.timeAgo(someDate, space: true)        // "5 mins ago"
-SessionTime.timeAgo(someDate, expand: true)       // "5 minutes ago"
+SessionTime.timeAgo(someDate, expand: true)       // "5minutes ago"
+SessionTime.timeAgo(someDate, expand: true, space: true) // "5 minutes ago"
 ```
 
 ## Behavior Notes
