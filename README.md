@@ -31,20 +31,45 @@ Add the package as a dependency in your `Package.swift`, then resolve it.
 
 1. **File > Add Packages...**
 2. Enter the repository URL: `https://github.com/founding5067/SessionTime`
+3. Select **Version:** and choose **Branch: main**
 
 ### Swift Package Manager (command line)
 
 Add the package to the `dependencies` array in your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/founding5067/SessionTime", from: "1.0.0")
+.package(url: "https://github.com/founding5067/SessionTime", from: "1.0.0", branch: "main")
 ```
+
+> ⚠️ **Important:** Since this package doesn't declare a version in `Package.swift`, the `from:` parameter uses the `branch:` constraint instead. The version constraint is matched by branch name.
 
 Then resolve dependencies:
 
 ```sh
 swift package resolve
 ```
+
+### Removing the Package
+
+If you need to remove the SessionTime package from your project:
+
+#### From Xcode
+1. Select your project in Xcode
+2. Go to your project target > **Targets** tab
+3. Select your app target
+4. Click **Add Target** ➜ **Library**
+5. Choose **Swift Package** (you'll see the package)
+6. Delete the package and confirm removal
+
+#### From command line
+```sh
+swift package remove-package <package-name>
+```
+
+You may also want to clean up:
+- Remove the package from your `Package.swift` `dependencies` array
+- Run `swift package resolve` to update
+- Remove any build artifacts: `rm -rf .build`
 
 ## Usage
 
