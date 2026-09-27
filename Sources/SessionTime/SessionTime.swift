@@ -34,7 +34,10 @@ public enum SessionTime {
         return formatter
     }()
 
-    /// "In 30mins" / "In 2h" — time until a session, for later today.
+    /// "In 30mins" / "In 2h" — how much time is left until a session, for
+    /// later today. The input is a number of **seconds** (e.g. `3_600` is 1
+    /// hour). This is pure arithmetic, so there is no `calendar:` parameter and
+    /// the timezone never affects the output.
     /// `expand` only chooses the word: "In 30 minutes" / "In 2 hours" (vs the
     /// compact "In 30mins" / "In 2h"). It never adds a space.
     /// `space` independently adds a space before the unit in the compact form:
@@ -43,17 +46,20 @@ public enum SessionTime {
     /// `spellNumber: true` spells the number while keeping the unit compact:
     /// "In twenty-five min". It does NOT add a space — spacing is controlled
     /// only by `space`, so pass `space: true` for "In twenty-five mins".
-    public static func timeRemaining(_ interval: TimeInterval, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
-        let isHour = interval >= 3600
-        let count = isHour ? Int(interval / 3600) : Int(interval) / 60
+    public static func timeRemaining(_ seconds: TimeInterval, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
+        let isHour = seconds >= 3600
+        let count = isHour ? Int(seconds / 3600) : Int(seconds) / 60
         let number = spellNumber ? spelledNumber(count) : String(count)
         let word = pluralUnit(count, expand, isHour)
-        let separator = space ? " " : ""
-        return "In \(number)\(separator)\(word)"
+        return "In \(number)\(spacedUnit(word, expand: expand, space: space))"
     }
 
-    /// "Just now" / "5mins ago" / "3h ago" — a session that has already happened.
-    /// An old session (before `date`) renders as a plain medium-style date.
+    /// "Just now" / "5mins ago" / "3h ago" — a session that has already
+    /// happened. "Now" is captured when you call the function, and the
+    /// "Just now" → "X mins" → "X hours" transitions are based on the absolute
+    /// time difference, so they don't depend on timezone. An old session (before
+    /// `date`) is rendered as a plain medium-style date, where the `calendar:`
+    /// timezone does matter.
     /// `expand` only chooses the word: "5 minutes ago" / "3 hours ago" (vs the
     /// compact "5mins ago" / "3h ago"). It never adds a space.
     /// `space` independently adds a space before the unit in the compact form:
@@ -65,8 +71,6 @@ public enum SessionTime {
     public static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
-        let separator = space ? " " : ""
-
         if diff < 0 {
             let formatter = makeDateLabelFormatter(calendar: calendar)
             return formatter.string(from: date)
@@ -78,22 +82,30 @@ public enum SessionTime {
             let minutes = Int(diff) / 60
             let number = spellNumber ? spelledNumber(minutes) : String(minutes)
             let word = pluralUnit(minutes, expand, false)
-            return "\(number)\(separator)\(word) ago"
+            return "\(number)\(spacedUnit(word, expand: expand, space: space)) ago"
         } else {
             let hours = Int(diff) / 3600
             let number = spellNumber ? spelledNumber(hours) : String(hours)
             let word = pluralUnit(hours, expand, true)
-            return "\(number)\(separator)\(word) ago"
+            return "\(number)\(spacedUnit(word, expand: expand, space: space)) ago"
         }
     }
 
-    /// Short clock time (e.g. "3:30 PM").
+    /// Short 12-hour clock time, e.g. "3:30 PM" (with an AM/PM suffix). The
+    /// `calendar:` parameter sets the timezone used for the reading; it defaults
+    /// to the current device timezone.
+    /// Output is deterministic: a fixed `en_POSIX` locale always produces the
+    /// 12-hour form with no periods (never "3:30 p.m."), regardless of device
+    /// locale.
     public static func time(_ date: Date, calendar: Calendar = .current) -> String {
         let formatter = makeClockFormatter(calendar: calendar)
         return formatter.string(from: date)
     }
 
-    /// Empty for today/tomorrow, else the plain date (e.g. "Jun 20").
+    /// Empty for today, "Tomorrow" for tomorrow, otherwise the medium-style date
+    /// (e.g. "Jun 20"; a year is included for dates far away). The `calendar:`
+    /// parameter sets the timezone, which affects both the today/tomorrow
+    /// detection and the formatted date.
     public static func dateLabel(_ date: Date, calendar: Calendar = .current) -> String {
         if calendar.isDateInToday(date) {
             return ""
@@ -146,7 +158,15 @@ public enum SessionTime {
     }()
 
     internal static func spelledNumber(_ count: Int) -> String {
-        spelled.string(for: count) ?? String(count)
+        // Foundation's `spellOut` spells every in-range integer (verified up to
+        // 10^17, incl. negatives), so `string(for:)` is always non-nil and this
+        // is a single expression rather than a guarded `??` fallback. Locale is
+        // pinned to `en_POSIX` for the same English words as the other
+        // formatters. It force-unwraps rather than falling back to the digit so
+        // there is no unreachable branch to keep coverage at 100%; a nil here
+        // would be a real Foundation bug worth crashing loudly on rather than
+        // silently emitting a wrong label.
+        spelled.string(for: count)!
     }
 
     // Picks the unit word for a count. Compact hours are invariant ("h");
