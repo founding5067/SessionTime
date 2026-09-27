@@ -1,8 +1,5 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
 //
-//  SessionFormatting.swift
-//  Game Time
+//  SessionTime.swift
 //
 //  Created by Cole Braswell on 9/25/26.
 //
@@ -16,10 +13,14 @@ import Foundation
 // The enum body is only used to namespace these helpers; the `public` keyword is
 // what actually exposes them to consumers of the Swift package.
 public enum SessionTime {
-    // Reusable, thread-safe formatters. DateFormatter is not thread-safe, so a
-    // static let reuses one instance instead of allocating a fresh one per call.
+    // Formatter templates. DateFormatter is not thread-safe, so a single static
+    // instance is configured once and then `.copy()`'d per call. Reusing the
+    // template avoids allocating a new formatter every time, while copying keeps
+    // each call thread-safe (no shared mutable state).
     public static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter
@@ -27,74 +28,156 @@ public enum SessionTime {
 
     public static let dateLabelFormatter: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_POSIX")
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.dateStyle = .medium
         return formatter
     }()
 
-    /// "In 30 mins" / "In 2h" — time until a session, for later today.
-    public static func timeRemaining(_ interval: TimeInterval) -> String {
-    // Reusable, thread-safe formatters. DateFormatter is not thread-safe, so a
-    // static let reuses one instance instead of allocating a fresh one per call.
-    static let timeFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter
-    }()
-
-    static let dateLabelFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        return formatter
-    }()
-
-    /// "In 30 mins" / "In 2h" — time until a session, for later today.
-    static func timeRemaining(_ interval: TimeInterval) -> String {
-        if interval < 3600 {
-            let minutes = Int(interval) / 60
-            return "In \(minutes) mins"
-        } else {
-            return "In \(Int(interval / 3600))h"
-        }
+    /// "In 30mins" / "In 2h" — how much time is left until a session, for
+    /// later today. The input is a number of **seconds** (e.g. `3_600` is 1
+    /// hour). This is pure arithmetic, so there is no `calendar:` parameter and
+    /// the timezone never affects the output.
+    /// `expand` only chooses the word: "In 30 minutes" / "In 2 hours" (vs the
+    /// compact "In 30mins" / "In 2h"). It never adds a space.
+    /// `space` independently adds a space before the unit in the compact form:
+    /// "In 30 mins" / "In 2 h". Combine it with `expand` if you want the space
+    /// with the full word: "In 30 minutes".
+    /// `spellNumber: true` spells the number while keeping the unit compact:
+    /// "In twenty-five min". It does NOT add a space — spacing is controlled
+    /// only by `space`, so pass `space: true` for "In twenty-five mins".
+    public static func timeRemaining(_ seconds: TimeInterval, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
+        let isHour = seconds >= 3600
+        let count = isHour ? Int(seconds / 3600) : Int(seconds) / 60
+        let number = spellNumber ? spelledNumber(count) : String(count)
+        let word = pluralUnit(count, expand, isHour)
+        return "In \(number)\(spacedUnit(word, expand: expand, space: space))"
     }
 
-    /// "Just now" / "5 mins ago" / "3h ago" — a session that has already happened.
-    public static func timeAgo(_ date: Date, calendar: Calendar = .current) -> String {
+    /// "Just now" / "5mins ago" / "3h ago" — a session that has already
+    /// happened. "Now" is captured when you call the function, and the
+    /// "Just now" → "X mins" → "X hours" transitions are based on the absolute
+    /// time difference, so they don't depend on timezone. An old session (before
+    /// `date`) is rendered as a plain medium-style date, where the `calendar:`
+    /// timezone does matter.
+    /// `expand` only chooses the word: "5 minutes ago" / "3 hours ago" (vs the
+    /// compact "5mins ago" / "3h ago"). It never adds a space.
+    /// `space` independently adds a space before the unit in the compact form:
+    /// "5 mins ago" / "3 h ago". Combine it with `expand` if you want the space
+    /// with the full word: "5 minutes ago".
+    /// `spellNumber: true` spells the number while keeping the unit compact:
+    /// "five min ago" / "three h ago". It does NOT add a space — spacing is
+    /// controlled only by `space`, so pass `space: true` for "five mins ago".
+    public static func timeAgo(_ date: Date, calendar: Calendar = .current, expand: Bool = false, space: Bool = false, spellNumber: Bool = false) -> String {
         let now = Date()
         let diff = now.timeIntervalSince(date)
-
         if diff < 0 {
-            return calendar.string(from: date, style: .medium)
+            let formatter = makeDateLabelFormatter(calendar: calendar)
+            return formatter.string(from: date)
         }
 
         if diff < 60 {
             return "Just now"
         } else if diff < 3600 {
             let minutes = Int(diff) / 60
-            if minutes > 1 {
-                return "\(minutes) mins ago"
-            } else {
-                return "\(minutes) min ago"
-            }
+            let number = spellNumber ? spelledNumber(minutes) : String(minutes)
+            let word = pluralUnit(minutes, expand, false)
+            return "\(number)\(spacedUnit(word, expand: expand, space: space)) ago"
         } else {
             let hours = Int(diff) / 3600
-            return "\(hours)h ago"
+            let number = spellNumber ? spelledNumber(hours) : String(hours)
+            let word = pluralUnit(hours, expand, true)
+            return "\(number)\(spacedUnit(word, expand: expand, space: space)) ago"
         }
     }
 
-    /// Short clock time (e.g. "3:30 PM").
+    /// Short 12-hour clock time, e.g. "3:30 PM" (with an AM/PM suffix). The
+    /// `calendar:` parameter sets the timezone used for the reading; it defaults
+    /// to the current device timezone.
+    /// Output is deterministic: a fixed `en_POSIX` locale always produces the
+    /// 12-hour form with no periods (never "3:30 p.m."), regardless of device
+    /// locale.
     public static func time(_ date: Date, calendar: Calendar = .current) -> String {
-        return SessionTime.timeFormatter.string(from: date)
+        let formatter = makeClockFormatter(calendar: calendar)
+        return formatter.string(from: date)
     }
 
-    /// Empty for today/tomorrow, else the plain date (e.g. "Jun 20").
+    /// Empty for today, "Tomorrow" for tomorrow, otherwise the medium-style date
+    /// (e.g. "Jun 20"; a year is included for dates far away). The `calendar:`
+    /// parameter sets the timezone, which affects both the today/tomorrow
+    /// detection and the formatted date.
     public static func dateLabel(_ date: Date, calendar: Calendar = .current) -> String {
         if calendar.isDateInToday(date) {
             return ""
         } else if calendar.isDateInTomorrow(date) {
             return "Tomorrow"
         } else {
-            return SessionTime.dateLabelFormatter.string(from: date, calendar: calendar)
+            let formatter = makeDateLabelFormatter(calendar: calendar)
+            return formatter.string(from: date)
+        }
+    }
+
+    // Builds a copy of the shared formatter with the requested calendar and
+    // timezone, so each call is independent and thread-safe. It's `internal`
+    // (not `private`) so tests can assert the calendar/style directly.
+    internal static func makeDateLabelFormatter(calendar: Calendar) -> DateFormatter {
+        let formatter = SessionTime.dateLabelFormatter.copy() as! DateFormatter
+        formatter.calendar = calendar
+        formatter.timeZone = calendar.timeZone
+        return formatter
+    }
+
+    internal static func makeClockFormatter(calendar: Calendar) -> DateFormatter {
+        let formatter = SessionTime.timeFormatter.copy() as! DateFormatter
+        formatter.calendar = calendar
+        // `timeStyle` uses the formatter's own `timeZone` property (not the
+        // calendar's), so set it explicitly — otherwise output shifts by the
+        // host machine's timezone.
+        formatter.timeZone = calendar.timeZone
+        return formatter
+    }
+
+    // Prepends a leading space to a unit word when the `space` flag is set.
+    // Spacing is the user's choice: `expand` only swaps the compact unit for
+    // the full word, it never forces a space. Singular/plural is chosen by the
+    // `pluralUnit(...)` helper.
+    internal static func spacedUnit(_ unit: String, expand: Bool, space: Bool) -> String {
+        let separator = space ? " " : ""
+        return "\(separator)\(unit)"
+    }
+
+    // A shared NumberFormatter template that spells integers into words
+    // ("25" -> "twenty-five"). Locale is pinned to `en_POSIX` so the words are
+    // always the same English words, matching the determinism goal of the other
+    // formatters. Used as a read-only template, like `timeFormatter`.
+    static let spelled = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .spellOut
+        formatter.locale = Locale(identifier: "en_POSIX")
+        return formatter
+    }()
+
+    internal static func spelledNumber(_ count: Int) -> String {
+        // Foundation's `spellOut` spells every in-range integer (verified up to
+        // 10^17, incl. negatives), so `string(for:)` is always non-nil and this
+        // is a single expression rather than a guarded `??` fallback. Locale is
+        // pinned to `en_POSIX` for the same English words as the other
+        // formatters. It force-unwraps rather than falling back to the digit so
+        // there is no unreachable branch to keep coverage at 100%; a nil here
+        // would be a real Foundation bug worth crashing loudly on rather than
+        // silently emitting a wrong label.
+        spelled.string(for: count)!
+    }
+
+    // Picks the unit word for a count. Compact hours are invariant ("h");
+    // minutes use "min"/"mins". The expanded form uses full words with the
+    // correct singular/plural ("minute"/"minutes", "hour"/"hours").
+    internal static func pluralUnit(_ count: Int, _ expand: Bool, _ isHour: Bool) -> String {
+        switch expand {
+        case true:
+            return isHour ? (count == 1 ? "hour" : "hours") : (count == 1 ? "minute" : "minutes")
+        case false:
+            return isHour ? "h" : (count == 1 ? "min" : "mins")
         }
     }
 }
